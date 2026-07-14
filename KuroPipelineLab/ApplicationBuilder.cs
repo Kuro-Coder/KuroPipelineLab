@@ -7,6 +7,8 @@ public sealed class ApplicationBuilder
     public ApplicationBuilder Use(
         Func<RequestDelegate, RequestDelegate> middleware)
     {
+        ArgumentNullException.ThrowIfNull(middleware);
+
         _components.Add(middleware);
 
         return this;
