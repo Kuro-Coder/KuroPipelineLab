@@ -4,20 +4,20 @@ internal static class Program
 {
     private static async Task Main()
     {
-        var builder = new ApplicationBuilder();
+        var app = new ApplicationBuilder();
 
-        builder.Use(next => async context =>
+        app.Use(next => async context =>
         {
-            Console.WriteLine("1. Logging started.");
+            Console.WriteLine("Logging started.");
 
             await next(context);
 
-            Console.WriteLine("6. Logging finished.");
+            Console.WriteLine("Logging finished.");
         });
 
-        builder.Use(next => async context =>
+        app.Use(next => async context =>
         {
-            Console.WriteLine("2. Authorization started.");
+            Console.WriteLine("Authorization started.");
 
             var isAuthenticated = true;
 
@@ -31,37 +31,22 @@ internal static class Program
 
             await next(context);
 
-            Console.WriteLine("5. Authorization finished.");
+            Console.WriteLine("Authorization finished.");
         });
 
-        builder.Use(next => async context =>
+        app.Run(async context =>
         {
-            var startedAt = DateTime.UtcNow;
+            Console.WriteLine("Terminal endpoint started.");
 
-            await next(context);
-
-            var finishedAt = DateTime.UtcNow;
-            var duration = finishedAt - startedAt;
-
-            Console.WriteLine(
-                $"Request duration: {duration.TotalMilliseconds} ms");
-        });
-
-        builder.Use(next => async context =>
-        {
-            Console.WriteLine("3. Endpoint started.");
-
-            await Task.Delay(500);
+            await Task.Delay(300);
 
             context.ResponseStatusCode = 200;
             context.ResponseBody = "Products list";
 
-            Console.WriteLine("4. Endpoint finished.");
-
-            await Task.CompletedTask;
+            Console.WriteLine("Terminal endpoint finished.");
         });
 
-        var pipeline = builder.Build();
+        var pipeline = app.Build();
 
         var context = new PipelineContext
         {
