@@ -1,4 +1,6 @@
-﻿namespace KuroPipelineLab;
+﻿using KuroPipelineLab.Middlewares;
+
+namespace KuroPipelineLab;
 
 internal static class Program
 {
@@ -6,92 +8,21 @@ internal static class Program
     {
         var app = new ApplicationBuilder();
 
-        app.Use(next => async context =>
-        {
-            Console.WriteLine(
-                $"Request started: {context.RequestMethod} {context.RequestPath}");
-
-            await next(context);
-
-            Console.WriteLine(
-                $"Request finished: {context.ResponseStatusCode}");
-        });
-
-        app.Map("/products", productsApp =>
-        {
-            productsApp.Use(next => async context =>
-            {
-                Console.WriteLine("Products middleware started.");
-
-                await next(context);
-
-                Console.WriteLine("Products middleware finished.");
-            });
-
-            productsApp.Run(async context =>
-            {
-                context.ResponseStatusCode = 200;
-                context.ResponseBody = "Products branch response";
-
-                await Task.CompletedTask;
-            });
-        });
-
-        app.Map("/orders", ordersApp =>
-        {
-            ordersApp.Use(next => async context =>
-            {
-                Console.WriteLine("Orders middleware started.");
-
-                await next(context);
-
-                Console.WriteLine("Orders middleware finished.");
-            });
-
-            ordersApp.Run(async context =>
-            {
-                context.ResponseStatusCode = 200;
-                context.ResponseBody = "Orders branch response";
-
-                await Task.CompletedTask;
-            });
-        });
-
-        app.Map("/admin", adminApp =>
-        {
-            adminApp.Use(next => async context =>
-            {
-                var isAdmin = context.Items.TryGetValue(
-                    "IsAdmin",
-                    out var value)
-                    && value is true;
-
-                if (!isAdmin)
-                {
-                    context.ResponseStatusCode = 403;
-                    context.ResponseBody = "Forbidden";
-
-                    return;
-                }
-
-                await next(context);
-            });
-
-            adminApp.Run(async context =>
-            {
-                context.ResponseStatusCode = 200;
-                context.ResponseBody = "Welcome to admin panel";
-
-                await Task.CompletedTask;
-            });
-        });
+        app.UseMiddleware<ExceptionHandlingMiddleware>();
+        app.UseMiddleware<LoggingMiddleware>();
+        app.UseMiddleware<ExecutionTimeMiddleware>();
+        app.UseMiddleware<AuthorizationMiddleware>();
 
         app.Run(async context =>
         {
-            context.ResponseStatusCode = 404;
-            context.ResponseBody = $"No endpoint found for {context.RequestPath}";
+            Console.WriteLine("[Endpoint] Endpoint started.");
 
-            await Task.CompletedTask;
+            await Task.Delay(300);
+
+            context.ResponseStatusCode = 200;
+            context.ResponseBody = "Products list";
+
+            Console.WriteLine("[Endpoint] Endpoint finished.");
         });
 
         var pipeline = app.Build();
@@ -99,35 +30,24 @@ internal static class Program
         await ExecuteRequest(
             pipeline,
             requestMethod: "GET",
-            requestPath: "/products");
-
-        await ExecuteRequest(
-            pipeline,
-            requestMethod: "POST",
-            requestPath: "/orders");
+            requestPath: "/products",
+            isAuthenticated: true);
 
         await ExecuteRequest(
             pipeline,
             requestMethod: "GET",
-            requestPath: "/customers");
-        
-        var context = new PipelineContext
-        {
-            RequestMethod = "GET",
-            RequestPath = "/admin"
-        };
-        context.Items["IsAdmin"] = true;
-        await pipeline(context);
-
+            requestPath: "/products",
+            isAuthenticated: false);
     }
 
     private static async Task ExecuteRequest(
         RequestDelegate pipeline,
         string requestMethod,
-        string requestPath)
+        string requestPath,
+        bool isAuthenticated)
     {
         Console.WriteLine();
-        Console.WriteLine(new string('-', 50));
+        Console.WriteLine(new string('-', 60));
 
         var context = new PipelineContext
         {
@@ -135,9 +55,14 @@ internal static class Program
             RequestPath = requestPath
         };
 
+        context.Items["IsAuthenticated"] = isAuthenticated;
+
         await pipeline(context);
 
-        Console.WriteLine($"Response status: {context.ResponseStatusCode}");
-        Console.WriteLine($"Response body: {context.ResponseBody}");
+        Console.WriteLine(
+            $"Response status: {context.ResponseStatusCode}");
+
+        Console.WriteLine(
+            $"Response body: {context.ResponseBody}");
     }
 }
