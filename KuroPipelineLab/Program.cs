@@ -57,6 +57,35 @@ internal static class Program
             });
         });
 
+        app.Map("/admin", adminApp =>
+        {
+            adminApp.Use(next => async context =>
+            {
+                var isAdmin = context.Items.TryGetValue(
+                    "IsAdmin",
+                    out var value)
+                    && value is true;
+
+                if (!isAdmin)
+                {
+                    context.ResponseStatusCode = 403;
+                    context.ResponseBody = "Forbidden";
+
+                    return;
+                }
+
+                await next(context);
+            });
+
+            adminApp.Run(async context =>
+            {
+                context.ResponseStatusCode = 200;
+                context.ResponseBody = "Welcome to admin panel";
+
+                await Task.CompletedTask;
+            });
+        });
+
         app.Run(async context =>
         {
             context.ResponseStatusCode = 404;
@@ -81,6 +110,15 @@ internal static class Program
             pipeline,
             requestMethod: "GET",
             requestPath: "/customers");
+        
+        var context = new PipelineContext
+        {
+            RequestMethod = "GET",
+            RequestPath = "/admin"
+        };
+        context.Items["IsAdmin"] = true;
+        await pipeline(context);
+
     }
 
     private static async Task ExecuteRequest(
