@@ -29,9 +29,7 @@ public static class ApplicationBuilderExtensions
 
         return app.Use(next => async context =>
         {
-            if (context.RequestPath.StartsWith(
-                    path,
-                    StringComparison.OrdinalIgnoreCase))
+            if (IsPathMatch(context.RequestPath, path))
             {
                 await branchPipeline(context);
 
@@ -42,5 +40,19 @@ public static class ApplicationBuilderExtensions
         });
     }
 
+    private static bool IsPathMatch(
+        string requestPath,
+        string branchPath)
+    {
+        if (requestPath.Equals(
+                branchPath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
 
+        return requestPath.StartsWith(
+            branchPath + "/",
+            StringComparison.OrdinalIgnoreCase);
+    }
 }
