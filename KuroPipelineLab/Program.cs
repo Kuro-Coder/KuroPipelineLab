@@ -8,56 +8,98 @@ internal static class Program
 
         app.Use(next => async context =>
         {
-            Console.WriteLine("Logging started.");
+            Console.WriteLine(
+                $"Request started: {context.RequestMethod} {context.RequestPath}");
 
             await next(context);
 
-            Console.WriteLine("Logging finished.");
+            Console.WriteLine(
+                $"Request finished: {context.ResponseStatusCode}");
         });
 
-        app.Use(next => async context =>
+        app.Map("/products", productsApp =>
         {
-            Console.WriteLine("Authorization started.");
-
-            var isAuthenticated = true;
-
-            if (!isAuthenticated)
+            productsApp.Use(next => async context =>
             {
-                context.ResponseStatusCode = 401;
-                context.ResponseBody = "Unauthorized";
+                Console.WriteLine("Products middleware started.");
 
-                return;
-            }
+                await next(context);
 
-            await next(context);
+                Console.WriteLine("Products middleware finished.");
+            });
 
-            Console.WriteLine("Authorization finished.");
+            productsApp.Run(async context =>
+            {
+                context.ResponseStatusCode = 200;
+                context.ResponseBody = "Products branch response";
+
+                await Task.CompletedTask;
+            });
+        });
+
+        app.Map("/orders", ordersApp =>
+        {
+            ordersApp.Use(next => async context =>
+            {
+                Console.WriteLine("Orders middleware started.");
+
+                await next(context);
+
+                Console.WriteLine("Orders middleware finished.");
+            });
+
+            ordersApp.Run(async context =>
+            {
+                context.ResponseStatusCode = 200;
+                context.ResponseBody = "Orders branch response";
+
+                await Task.CompletedTask;
+            });
         });
 
         app.Run(async context =>
         {
-            Console.WriteLine("Terminal endpoint started.");
+            context.ResponseStatusCode = 404;
+            context.ResponseBody = $"No endpoint found for {context.RequestPath}";
 
-            await Task.Delay(300);
-
-            context.ResponseStatusCode = 200;
-            context.ResponseBody = "Products list";
-
-            Console.WriteLine("Terminal endpoint finished.");
+            await Task.CompletedTask;
         });
 
         var pipeline = app.Build();
 
+        await ExecuteRequest(
+            pipeline,
+            requestMethod: "GET",
+            requestPath: "/products");
+
+        await ExecuteRequest(
+            pipeline,
+            requestMethod: "POST",
+            requestPath: "/orders");
+
+        await ExecuteRequest(
+            pipeline,
+            requestMethod: "GET",
+            requestPath: "/customers");
+    }
+
+    private static async Task ExecuteRequest(
+        RequestDelegate pipeline,
+        string requestMethod,
+        string requestPath)
+    {
+        Console.WriteLine();
+        Console.WriteLine(new string('-', 50));
+
         var context = new PipelineContext
         {
-            RequestPath = "/products",
-            RequestMethod = "GET"
+            RequestMethod = requestMethod,
+            RequestPath = requestPath
         };
 
         await pipeline(context);
 
-        Console.WriteLine();
-        Console.WriteLine($"Status code: {context.ResponseStatusCode}");
+        Console.WriteLine($"Response status: {context.ResponseStatusCode}");
         Console.WriteLine($"Response body: {context.ResponseBody}");
     }
 }
